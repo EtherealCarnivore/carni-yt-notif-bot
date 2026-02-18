@@ -101,31 +101,13 @@ async function sendVideoNotification(video, feed) {
   const videoId = video.id.split(':').pop();
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // Create embed
-  const embed = new EmbedBuilder()
-    .setColor('#FF0000')
-    .setTitle(video.title)
-    .setURL(videoUrl)
-    .setDescription(video.contentSnippet || 'No description available')
-    .setAuthor({
-      name: feed.title || 'YouTube Channel',
-      iconURL: 'https://www.youtube.com/s/desktop/d743f786/img/favicon_144x144.png'
-    })
-    .setTimestamp(new Date(video.pubDate))
-    .setFooter({ text: 'New Video Uploaded' });
-
-  // Add thumbnail if available
-  if (video.media && video.media.thumbnail) {
-    embed.setImage(video.media.thumbnail.url);
-  }
-
-  // Role mention (if configured)
+  // Role mention + message (Discord will auto-embed the YouTube link)
   const content = process.env.DISCORD_ROLE_ID
-    ? `<@&${process.env.DISCORD_ROLE_ID}> 🎬 **New video uploaded!**\n${videoUrl}`
-    : `🎬 **New video uploaded!**\n${videoUrl}`;
+    ? `<@&${process.env.DISCORD_ROLE_ID}> 🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`
+    : `🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`;
 
   try {
-    await notificationChannel.send({ content, embeds: [embed] });
+    await notificationChannel.send({ content });
     console.log(`✅ Notification sent for: ${video.title}`);
   } catch (error) {
     console.error('❌ Error sending notification:', error.message);
