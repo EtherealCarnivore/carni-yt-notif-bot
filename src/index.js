@@ -5,6 +5,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Verify required environment variables
+const required = ['DISCORD_TOKEN', 'DISCORD_CHANNEL_ID', 'YOUTUBE_RSS_URL'];
+const missing = required.filter(key => !process.env[key]);
+if (missing.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
+console.log('✅ Environment variables loaded');
+console.log(`   - Channel ID: ${process.env.DISCORD_CHANNEL_ID}`);
+console.log(`   - Role ID: ${process.env.DISCORD_ROLE_ID || 'not set'}`);
+console.log(`   - Token: ${process.env.DISCORD_TOKEN ? '***' + process.env.DISCORD_TOKEN.slice(-10) : 'MISSING'}`);
+
 const app = express();
 const parser = new Parser();
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -163,5 +176,9 @@ app.listen(PORT, () => {
   console.log(`🌐 Test server listening on port ${PORT}`);
 });
 
-// Login to Discord
-client.login(process.env.DISCORD_TOKEN);
+// Login to Discord with error handling
+console.log('🔑 Attempting to login to Discord...');
+client.login(process.env.DISCORD_TOKEN).catch(error => {
+  console.error('❌ Failed to login to Discord:', error.message);
+  process.exit(1);
+});
