@@ -1,0 +1,19 @@
+{
+  "name": "carni-yt-notif-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for YouTube channel notifications",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": ["discord", "bot", "youtube", "notifications"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "rss-parser": "^3.13.0",
+    "dotenv": "^16.4.1"
+  }
+}
