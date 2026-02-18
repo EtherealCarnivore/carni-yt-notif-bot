@@ -1,9 +1,11 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import Parser from 'rss-parser';
+import express from 'express';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+const app = express();
 const parser = new Parser();
 const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -116,6 +118,50 @@ async function sendVideoNotification(video, feed) {
     console.error('❌ Error sending notification:', error.message);
   }
 }
+
+// Test endpoint to manually trigger notification with latest video
+app.get('/test', async (req, res) => {
+  try {
+    const feed = await parser.parseURL(process.env.YOUTUBE_RSS_URL);
+
+    if (!feed.items || feed.items.length === 0) {
+      return res.status(404).json({ error: 'No videos found' });
+    }
+
+    const latestVideo = feed.items[0];
+
+    if (!notificationChannel) {
+      return res.status(500).json({ error: 'Bot not connected to channel' });
+    }
+
+    await sendVideoNotification(latestVideo, feed);
+
+    res.json({
+      success: true,
+      video: latestVideo.title,
+      url: `https://www.youtube.com/watch?v=${latestVideo.id.split(':').pop()}`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    bot: client.user?.tag || 'not ready',
+    channel: notificationChannel?.name || 'not connected',
+    lastVideo: lastVideoId || 'none',
+    uptime: process.uptime()
+  });
+});
+
+// Start Express server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🌐 Test server listening on port ${PORT}`);
+});
 
 // Login to Discord
 client.login(process.env.DISCORD_TOKEN);
