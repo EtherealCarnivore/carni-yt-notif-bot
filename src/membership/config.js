@@ -2,9 +2,9 @@
 // The owner gives you the exact tier names from their /join page; fill in the
 // role IDs you create in the Discord server.
 export const TIER_TO_ROLE = {
-  // "Tier 1 Name": "discord_role_id_for_tier_1",
-  // "Tier 2 Name": "discord_role_id_for_tier_2",
-  // "Tier 3 Name": "discord_role_id_for_tier_3",
+  "BIG FAN's UWU":              "1505899564304175216",
+  "Headset SAVINGS":            "1505899706901991424",
+  "Saving for RAM Until 2029":  "1505899798719496292",
 };
 
 // Roles the bot is allowed to add/remove during reconcile. Any role on a
