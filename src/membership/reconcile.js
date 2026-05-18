@@ -1,6 +1,6 @@
 import { store } from './store.js';
 import { getAuthedClient, isExpiredAuthError } from './googleAuth.js';
-import { fetchAllMembers } from './youtube.js';
+import { fetchAllMembers, fetchAuthedChannel } from './youtube.js';
 import { TIER_TO_ROLE, MANAGED_ROLES } from './config.js';
 import { issueOwnerLinkState } from './discordAuth.js';
 import { buildConsentUrl } from './googleAuth.js';
@@ -51,6 +51,19 @@ export async function reconcile(client) {
         return;
       }
       throw e;
+    }
+
+    try {
+      const channels = await fetchAuthedChannel(authClient);
+      if (channels.length === 0) {
+        console.warn('🔍 authed-channel: no channel returned for this token');
+      } else {
+        for (const c of channels) {
+          console.log(`🔍 authed-channel: id=${c.id} title="${c.title}" url=${c.customUrl} subs=${c.subscriberCount}`);
+        }
+      }
+    } catch (e) {
+      console.warn('🔍 authed-channel lookup failed:', e.message);
     }
 
     let members;

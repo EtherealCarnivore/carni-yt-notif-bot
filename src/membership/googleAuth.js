@@ -1,7 +1,10 @@
 import { google } from 'googleapis';
 import { store } from './store.js';
 
-const SCOPE = 'https://www.googleapis.com/auth/youtube.channel-memberships.creator';
+const SCOPES = [
+  'https://www.googleapis.com/auth/youtube.channel-memberships.creator',
+  'https://www.googleapis.com/auth/youtube.readonly',
+];
 
 function redirectUri() {
   return `${process.env.PUBLIC_BASE_URL}/oauth/google/callback`;
@@ -19,7 +22,7 @@ export function buildConsentUrl(state) {
   return makeOAuthClient().generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    scope: [SCOPE],
+    scope: SCOPES,
     state,
   });
 }

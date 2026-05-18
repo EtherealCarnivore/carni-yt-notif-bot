@@ -1,5 +1,16 @@
 import { google } from 'googleapis';
 
+export async function fetchAuthedChannel(authClient) {
+  const yt = google.youtube({ version: 'v3', auth: authClient });
+  const { data } = await yt.channels.list({ part: 'snippet,statistics', mine: true });
+  return (data.items ?? []).map(c => ({
+    id: c.id,
+    title: c?.snippet?.title,
+    customUrl: c?.snippet?.customUrl,
+    subscriberCount: c?.statistics?.subscriberCount,
+  }));
+}
+
 export async function fetchAllMembers(authClient) {
   const yt = google.youtube({ version: 'v3', auth: authClient });
   const out = [];
