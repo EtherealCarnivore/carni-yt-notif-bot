@@ -6,6 +6,8 @@ import { mountMembershipRoutes } from './membership/routes.js';
 import { registerCommands, attachInteractionHandler } from './membership/commands.js';
 import { reconcile } from './membership/reconcile.js';
 import { RECONCILE_INTERVAL_MS } from './membership/config.js';
+import { attachWelcomeDmHandler } from './membership/welcome.js';
+import { buildLinkYouTubeRow } from './membership/linkButton.js';
 
 dotenv.config();
 
@@ -72,6 +74,7 @@ client.once('ready', async () => {
     try {
       await registerCommands();
       attachInteractionHandler(client);
+      attachWelcomeDmHandler(client);
       console.log(`🔁 Starting membership reconcile loop (every ${RECONCILE_INTERVAL_MS / 60000} minutes)`);
       setInterval(() => reconcile(client).catch(e => console.error('reconcile error:', e.message)), RECONCILE_INTERVAL_MS);
       reconcile(client).catch(e => console.error('initial reconcile error:', e.message));
@@ -137,8 +140,10 @@ async function sendVideoNotification(video, feed) {
     ? `<@&${process.env.DISCORD_ROLE_ID}> 🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`
     : `🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`;
 
+  const components = MEMBERSHIP_ENABLED ? [buildLinkYouTubeRow()] : [];
+
   try {
-    await notificationChannel.send({ content });
+    await notificationChannel.send({ content, components });
     console.log(`✅ Notification sent for: ${video.title}`);
   } catch (error) {
     console.error('❌ Error sending notification:', error.message);

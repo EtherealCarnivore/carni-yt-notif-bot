@@ -6,6 +6,12 @@ import {
 } from 'discord.js';
 import { issueUserLinkState, buildUserAuthUrl } from './discordAuth.js';
 import { reconcile } from './reconcile.js';
+import {
+  LINK_YT_BUTTON_ID,
+  buildLinkYouTubeRow,
+  buildLinkYouTubeEmbed,
+  handleLinkYouTubeButton,
+} from './linkButton.js';
 
 const COMMANDS = [
   new SlashCommandBuilder()
@@ -15,6 +21,10 @@ const COMMANDS = [
   new SlashCommandBuilder()
     .setName('admin-sync')
     .setDescription('(Owner only) Force a membership reconcile now.')
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('admin-post-link-message')
+    .setDescription('(Owner only) Post the "Link YouTube" button in this channel.')
     .toJSON(),
 ];
 
@@ -32,10 +42,19 @@ export async function registerCommands() {
 
 export function attachInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
     const ownerId = process.env.DISCORD_OWNER_USER_ID;
 
     try {
+      // Button clicks
+      if (interaction.isButton && interaction.isButton()) {
+        if (interaction.customId === LINK_YT_BUTTON_ID) {
+          await handleLinkYouTubeButton(interaction);
+        }
+        return;
+      }
+
+      if (!interaction.isChatInputCommand()) return;
+
       if (interaction.commandName === 'link-youtube') {
         const state = issueUserLinkState(interaction.user.id);
         const url = buildUserAuthUrl(state);
@@ -55,9 +74,22 @@ export function attachInteractionHandler(client) {
           return;
         }
         await interaction.reply({ content: 'Reconciling…', flags: MessageFlags.Ephemeral });
-        reconcile(client)
+        reconcile(interaction.client)
           .then(() => interaction.followUp({ content: 'Done.', flags: MessageFlags.Ephemeral }).catch(() => {}))
           .catch(e => interaction.followUp({ content: `Failed: ${e.message}`, flags: MessageFlags.Ephemeral }).catch(() => {}));
+        return;
+      }
+
+      if (interaction.commandName === 'admin-post-link-message') {
+        if (interaction.user.id !== ownerId) {
+          await interaction.reply({ content: 'Not authorized.', flags: MessageFlags.Ephemeral });
+          return;
+        }
+        await interaction.channel.send({
+          embeds: [buildLinkYouTubeEmbed()],
+          components: [buildLinkYouTubeRow()],
+        });
+        await interaction.reply({ content: 'Posted. Pin the message so it stays visible.', flags: MessageFlags.Ephemeral });
         return;
       }
     } catch (e) {
