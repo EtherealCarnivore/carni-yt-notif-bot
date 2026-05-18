@@ -63,6 +63,11 @@ export async function reconcile(client) {
         return;
       }
       console.error('❌ reconcile: members.list failed:', e.message);
+      if (e.response?.data) {
+        try { console.error('   API error detail:', JSON.stringify(e.response.data)); }
+        catch { console.error('   API error detail (unstringifiable):', e.response.data); }
+      }
+      if (e.errors) console.error('   errors[]:', JSON.stringify(e.errors));
       return;
     }
 
