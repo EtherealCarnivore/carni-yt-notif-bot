@@ -2,6 +2,10 @@ import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import Parser from 'rss-parser';
 import express from 'express';
 import dotenv from 'dotenv';
+import { mountMembershipRoutes } from './membership/routes.js';
+import { registerCommands, attachInteractionHandler } from './membership/commands.js';
+import { reconcile } from './membership/reconcile.js';
+import { RECONCILE_INTERVAL_MS } from './membership/config.js';
 
 dotenv.config();
 
@@ -11,6 +15,18 @@ const missing = required.filter(key => !process.env[key]);
 if (missing.length > 0) {
   console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
   process.exit(1);
+}
+
+const MEMBERSHIP_ENABLED = !!(
+  process.env.DISCORD_GUILD_ID &&
+  process.env.DISCORD_CLIENT_ID &&
+  process.env.DISCORD_CLIENT_SECRET &&
+  process.env.GOOGLE_CLIENT_ID &&
+  process.env.GOOGLE_CLIENT_SECRET &&
+  process.env.PUBLIC_BASE_URL
+);
+if (!MEMBERSHIP_ENABLED) {
+  console.warn('⚠️ Membership sync disabled — missing one or more of: DISCORD_GUILD_ID, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, PUBLIC_BASE_URL');
 }
 
 console.log('✅ Environment variables loaded');
@@ -24,7 +40,10 @@ const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // Discord bot setup
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers, // privileged — enable in dev portal
+  ]
 });
 
 let notificationChannel = null;
@@ -48,6 +67,19 @@ client.once('ready', async () => {
   // Start polling
   console.log(`🔄 Starting YouTube RSS polling (every ${CHECK_INTERVAL / 60000} minutes)`);
   setInterval(checkForNewVideos, CHECK_INTERVAL);
+
+  // Membership sync
+  if (MEMBERSHIP_ENABLED) {
+    try {
+      await registerCommands();
+      attachInteractionHandler(client);
+      console.log(`🔁 Starting membership reconcile loop (every ${RECONCILE_INTERVAL_MS / 60000} minutes)`);
+      setInterval(() => reconcile(client).catch(e => console.error('reconcile error:', e.message)), RECONCILE_INTERVAL_MS);
+      reconcile(client).catch(e => console.error('initial reconcile error:', e.message));
+    } catch (e) {
+      console.error('❌ Membership setup failed:', e.message);
+    }
+  }
 });
 
 async function initializeLastVideo() {
@@ -151,6 +183,10 @@ app.get('/', (req, res) => {
     uptime: process.uptime()
   });
 });
+
+if (MEMBERSHIP_ENABLED) {
+  mountMembershipRoutes(app, client);
+}
 
 // Start Express server
 const PORT = process.env.PORT || 3000;
