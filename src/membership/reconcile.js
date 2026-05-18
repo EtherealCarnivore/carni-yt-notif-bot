@@ -1,15 +1,13 @@
 import { store } from './store.js';
-import { getAuthedClient, isExpiredAuthError } from './googleAuth.js';
-import { fetchAllMembers, fetchAuthedChannel } from './youtube.js';
+import { getYouTubeAccessToken } from './streamElements.js';
+import { fetchAllMembers } from './youtube.js';
 import { TIER_TO_ROLE, MANAGED_ROLES } from './config.js';
-import { issueOwnerLinkState } from './discordAuth.js';
-import { buildConsentUrl } from './googleAuth.js';
 
 let running = false;
 let lastOwnerDmAt = 0;
 const OWNER_DM_COOLDOWN_MS = 6 * 60 * 60_000;
 
-async function dmOwnerRelink(client) {
+async function dmOwner(client, message) {
   const now = Date.now();
   if (now - lastOwnerDmAt < OWNER_DM_COOLDOWN_MS) return;
   lastOwnerDmAt = now;
@@ -17,16 +15,11 @@ async function dmOwnerRelink(client) {
   const ownerId = process.env.DISCORD_OWNER_USER_ID;
   if (!ownerId) return;
   try {
-    const state = issueOwnerLinkState(ownerId);
-    const url = buildConsentUrl(state);
     const user = await client.users.fetch(ownerId);
-    await user.send(
-      `🔑 YouTube membership link expired (Google testing-mode token TTL).\n` +
-      `Tap to re-authorize so role sync keeps working:\n${url}`
-    );
-    console.log('📨 Owner DM sent: re-auth required');
+    await user.send(message);
+    console.log('📨 Owner DM sent');
   } catch (e) {
-    console.error('❌ Could not DM owner for re-auth:', e.message);
+    console.error('❌ Could not DM owner:', e.message);
   }
 }
 
@@ -41,46 +34,33 @@ export async function reconcile(client) {
   }
   running = true;
   try {
-    let authClient;
+    let accessToken;
     try {
-      authClient = await getAuthedClient();
+      accessToken = await getYouTubeAccessToken();
     } catch (e) {
-      if (isExpiredAuthError(e)) {
-        console.warn('⚠️ reconcile: Google auth needs re-link');
-        await dmOwnerRelink(client);
-        return;
+      console.error('❌ reconcile: could not get YT token via StreamElements:', e.message);
+      if (e.code === 'SE_JWT_INVALID' || e.code === 'SE_JWT_MISSING') {
+        await dmOwner(client,
+          '⚠️ StreamElements JWT is missing or invalid. The membership-tier role sync is paused. ' +
+          'Update the `SE_JWT` env var on Railway with a fresh token from streamelements.com → Account → Show secrets.'
+        );
+      } else if (e.code === 'SE_NO_YT_TOKEN') {
+        await dmOwner(client,
+          '⚠️ StreamElements returned no YouTube access token. Re-link your YouTube channel in StreamElements account settings.'
+        );
       }
-      throw e;
-    }
-
-    try {
-      const channels = await fetchAuthedChannel(authClient);
-      if (channels.length === 0) {
-        console.warn('🔍 authed-channel: no channel returned for this token');
-      } else {
-        for (const c of channels) {
-          console.log(`🔍 authed-channel: id=${c.id} title="${c.title}" url=${c.customUrl} subs=${c.subscriberCount}`);
-        }
-      }
-    } catch (e) {
-      console.warn('🔍 authed-channel lookup failed:', e.message);
+      return;
     }
 
     let members;
     try {
-      members = await fetchAllMembers(authClient);
+      members = await fetchAllMembers(accessToken);
     } catch (e) {
-      if (isExpiredAuthError(e)) {
-        console.warn('⚠️ reconcile: refresh token rejected, needs re-link');
-        await dmOwnerRelink(client);
-        return;
-      }
       console.error('❌ reconcile: members.list failed:', e.message);
-      if (e.response?.data) {
-        try { console.error('   API error detail:', JSON.stringify(e.response.data)); }
-        catch { console.error('   API error detail (unstringifiable):', e.response.data); }
+      if (e.body) {
+        try { console.error('   API error detail:', JSON.stringify(e.body)); }
+        catch { console.error('   API error detail (unstringifiable):', e.body); }
       }
-      if (e.errors) console.error('   errors[]:', JSON.stringify(e.errors));
       return;
     }
 

@@ -21,12 +21,11 @@ const MEMBERSHIP_ENABLED = !!(
   process.env.DISCORD_GUILD_ID &&
   process.env.DISCORD_CLIENT_ID &&
   process.env.DISCORD_CLIENT_SECRET &&
-  process.env.GOOGLE_CLIENT_ID &&
-  process.env.GOOGLE_CLIENT_SECRET &&
+  process.env.SE_JWT &&
   process.env.PUBLIC_BASE_URL
 );
 if (!MEMBERSHIP_ENABLED) {
-  console.warn('⚠️ Membership sync disabled — missing one or more of: DISCORD_GUILD_ID, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, PUBLIC_BASE_URL');
+  console.warn('⚠️ Membership sync disabled — missing one or more of: DISCORD_GUILD_ID, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SE_JWT, PUBLIC_BASE_URL');
 }
 
 console.log('✅ Environment variables loaded');

@@ -4,22 +4,13 @@ import {
   SlashCommandBuilder,
   MessageFlags,
 } from 'discord.js';
-import {
-  issueUserLinkState,
-  issueOwnerLinkState,
-  buildUserAuthUrl,
-} from './discordAuth.js';
-import { buildConsentUrl } from './googleAuth.js';
+import { issueUserLinkState, buildUserAuthUrl } from './discordAuth.js';
 import { reconcile } from './reconcile.js';
 
 const COMMANDS = [
   new SlashCommandBuilder()
     .setName('link-youtube')
     .setDescription('Link your YouTube account to sync your membership role.')
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName('admin-relink')
-    .setDescription('(Owner only) Re-authorize the YouTube membership API.')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('admin-sync')
@@ -53,20 +44,6 @@ export function attachInteractionHandler(client) {
             `Click to link your YouTube account: <${url}>\n` +
             `If you don't have YouTube connected in Discord yet: ` +
             `**User Settings → Connections → Add → YouTube** first.`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-
-      if (interaction.commandName === 'admin-relink') {
-        if (interaction.user.id !== ownerId) {
-          await interaction.reply({ content: 'Not authorized.', flags: MessageFlags.Ephemeral });
-          return;
-        }
-        const state = issueOwnerLinkState(interaction.user.id);
-        const url = buildConsentUrl(state);
-        await interaction.reply({
-          content: `Re-authorize YouTube: <${url}>`,
           flags: MessageFlags.Ephemeral,
         });
         return;

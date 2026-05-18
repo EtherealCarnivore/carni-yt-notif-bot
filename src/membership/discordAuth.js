@@ -3,12 +3,7 @@ import { store } from './store.js';
 
 const STATE_TTL_MS = 10 * 60_000;
 
-// state → { kind: 'user'|'owner', discordUserId?, expiresAt }
-const pending = new Map();
-
-function newState() {
-  return crypto.randomBytes(16).toString('hex');
-}
+const pending = new Map(); // state → { discordUserId, expiresAt }
 
 function gc() {
   const now = Date.now();
@@ -17,22 +12,15 @@ function gc() {
 
 export function issueUserLinkState(discordUserId) {
   gc();
-  const state = newState();
-  pending.set(state, { kind: 'user', discordUserId, expiresAt: Date.now() + STATE_TTL_MS });
+  const state = crypto.randomBytes(16).toString('hex');
+  pending.set(state, { discordUserId, expiresAt: Date.now() + STATE_TTL_MS });
   return state;
 }
 
-export function issueOwnerLinkState(discordUserId) {
-  gc();
-  const state = newState();
-  pending.set(state, { kind: 'owner', discordUserId, expiresAt: Date.now() + STATE_TTL_MS });
-  return state;
-}
-
-export function consumeState(state, kind) {
+export function consumeUserLinkState(state) {
   gc();
   const entry = pending.get(state);
-  if (!entry || entry.kind !== kind || entry.expiresAt < Date.now()) return null;
+  if (!entry || entry.expiresAt < Date.now()) return null;
   pending.delete(state);
   return entry;
 }

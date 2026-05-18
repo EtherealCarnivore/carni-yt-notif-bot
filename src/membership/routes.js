@@ -1,8 +1,4 @@
-import {
-  consumeState,
-  exchangeUserCodeAndLink,
-} from './discordAuth.js';
-import { handleCallback as handleGoogleCallback } from './googleAuth.js';
+import { consumeUserLinkState, exchangeUserCodeAndLink } from './discordAuth.js';
 import { reconcile } from './reconcile.js';
 
 function html(body) {
@@ -10,32 +6,12 @@ function html(body) {
 }
 
 export function mountMembershipRoutes(app, client) {
-  // --- Google (owner) ----------------------------------------------------
-  app.get('/oauth/google/callback', async (req, res) => {
-    const { code, state, error } = req.query;
-    if (error) return res.status(400).send(html(`<h2>Google denied: ${error}</h2>`));
-    if (!code || !state) return res.status(400).send(html('<h2>Missing code or state.</h2>'));
-
-    const entry = consumeState(String(state), 'owner');
-    if (!entry) return res.status(400).send(html('<h2>Invalid or expired link.</h2><p>Run <code>/admin-relink</code> again in Discord.</p>'));
-
-    try {
-      await handleGoogleCallback(String(code));
-      res.send(html('<h2>Linked.</h2><p>You can close this tab. Role sync will run within minutes.</p>'));
-      reconcile(client).catch(e => console.error('post-relink reconcile failed:', e));
-    } catch (e) {
-      console.error('❌ Google callback failed:', e.message);
-      res.status(500).send(html(`<h2>Failed:</h2><pre>${e.message}</pre>`));
-    }
-  });
-
-  // --- Discord (member) --------------------------------------------------
   app.get('/oauth/discord/callback', async (req, res) => {
     const { code, state, error } = req.query;
     if (error) return res.status(400).send(html(`<h2>Discord denied: ${error}</h2>`));
     if (!code || !state) return res.status(400).send(html('<h2>Missing code or state.</h2>'));
 
-    const entry = consumeState(String(state), 'user');
+    const entry = consumeUserLinkState(String(state));
     if (!entry) return res.status(400).send(html('<h2>Invalid or expired link.</h2><p>Run <code>/link-youtube</code> in Discord again.</p>'));
 
     try {
