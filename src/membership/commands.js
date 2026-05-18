@@ -3,6 +3,7 @@ import {
   Routes,
   SlashCommandBuilder,
   MessageFlags,
+  PermissionFlagsBits,
 } from 'discord.js';
 import { issueUserLinkState, buildUserAuthUrl } from './discordAuth.js';
 import { reconcile } from './reconcile.js';
@@ -40,10 +41,14 @@ export async function registerCommands() {
   console.log(`✅ Registered ${COMMANDS.length} slash commands in guild ${guildId}`);
 }
 
+function isAdmin(interaction) {
+  if (interaction.user.id === process.env.DISCORD_OWNER_USER_ID) return true;
+  const perms = interaction.member?.permissions;
+  return !!(perms && typeof perms.has === 'function' && perms.has(PermissionFlagsBits.ManageGuild));
+}
+
 export function attachInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
-    const ownerId = process.env.DISCORD_OWNER_USER_ID;
-
     try {
       // Button clicks
       if (interaction.isButton && interaction.isButton()) {
@@ -69,8 +74,8 @@ export function attachInteractionHandler(client) {
       }
 
       if (interaction.commandName === 'admin-sync') {
-        if (interaction.user.id !== ownerId) {
-          await interaction.reply({ content: 'Not authorized.', flags: MessageFlags.Ephemeral });
+        if (!isAdmin(interaction)) {
+          await interaction.reply({ content: 'Not authorized. Requires Manage Server permission.', flags: MessageFlags.Ephemeral });
           return;
         }
         await interaction.reply({ content: 'Reconciling…', flags: MessageFlags.Ephemeral });
@@ -81,8 +86,8 @@ export function attachInteractionHandler(client) {
       }
 
       if (interaction.commandName === 'admin-post-link-message') {
-        if (interaction.user.id !== ownerId) {
-          await interaction.reply({ content: 'Not authorized.', flags: MessageFlags.Ephemeral });
+        if (!isAdmin(interaction)) {
+          await interaction.reply({ content: 'Not authorized. Requires Manage Server permission.', flags: MessageFlags.Ephemeral });
           return;
         }
         await interaction.channel.send({
