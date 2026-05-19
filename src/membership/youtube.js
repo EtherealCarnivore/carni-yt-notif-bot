@@ -28,7 +28,9 @@ export async function fetchAllMembers(accessToken) {
     for (const m of data.items ?? []) {
       const channelId = m?.snippet?.memberDetails?.channelId;
       const tierName = m?.snippet?.membershipsDetails?.highestAccessibleLevelDisplayName;
-      if (channelId && tierName) out.push({ channelId, tierName });
+      const displayName = m?.snippet?.memberDetails?.displayName;
+      const durationMonths = m?.snippet?.membershipsDetails?.membershipsDuration?.memberTotalDurationMonths;
+      if (channelId && tierName) out.push({ channelId, tierName, displayName, durationMonths });
     }
     pageToken = data.nextPageToken;
   } while (pageToken);

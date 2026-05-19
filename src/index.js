@@ -8,6 +8,8 @@ import { reconcile } from './membership/reconcile.js';
 import { RECONCILE_INTERVAL_MS } from './membership/config.js';
 import { attachWelcomeDmHandler } from './membership/welcome.js';
 import { buildLinkYouTubeRow } from './membership/linkButton.js';
+import { startStatsLoop } from './stats.js';
+import { notifyOps } from './ops.js';
 
 dotenv.config();
 
@@ -82,6 +84,8 @@ client.once('ready', async () => {
       console.error('❌ Membership setup failed:', e.message);
     }
   }
+
+  startStatsLoop(client);
 });
 
 async function initializeLastVideo() {
@@ -96,9 +100,13 @@ async function initializeLastVideo() {
   }
 }
 
+let consecutiveFeedFailures = 0;
+const FEED_FAIL_ALERT_THRESHOLD = 3;
+
 async function checkForNewVideos() {
   try {
     const feed = await parser.parseURL(process.env.YOUTUBE_RSS_URL);
+    consecutiveFeedFailures = 0;
 
     if (!feed.items || feed.items.length === 0) {
       console.log('⚠️ No videos found in feed');
@@ -121,7 +129,13 @@ async function checkForNewVideos() {
     await sendVideoNotification(latestVideo, feed);
 
   } catch (error) {
+    consecutiveFeedFailures++;
     console.error('❌ Error checking for videos:', error.message);
+    if (consecutiveFeedFailures >= FEED_FAIL_ALERT_THRESHOLD) {
+      notifyOps(client, 'rss_feed_failed',
+        `🚨 **YouTube RSS poll failed ${consecutiveFeedFailures}× in a row.** Last error: \`${error.message}\``)
+        .catch(() => {});
+    }
   }
 }
 

@@ -5,7 +5,8 @@ const DATA_DIR = process.env.DATA_DIR || './data';
 const FILE = path.join(DATA_DIR, 'membership.json');
 
 const DEFAULT = {
-  links: {}, // discordUserId → { youtubeChannelId, linkedAt }
+  links: {},                       // discordUserId → { youtubeChannelId, linkedAt }
+  memberDurationSnapshots: {},     // ytChannelId → { lastSeenMonths, lastSeenTier }
 };
 
 let cache = null;

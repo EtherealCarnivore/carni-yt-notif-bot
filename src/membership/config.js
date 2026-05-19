@@ -13,3 +13,8 @@ export const MANAGED_ROLES = new Set(Object.values(TIER_TO_ROLE));
 
 export const RECONCILE_INTERVAL_MS =
   Number(process.env.RECONCILE_INTERVAL_MIN || 30) * 60_000;
+
+// Months at which we celebrate a member's anniversary in the shoutout channel.
+// Crossings are detected against the prior reconcile snapshot, so adding a
+// milestone here will trigger it the next time a member crosses it.
+export const MEMBERSHIP_MILESTONES = [1, 3, 6, 12, 24, 36, 48, 60];

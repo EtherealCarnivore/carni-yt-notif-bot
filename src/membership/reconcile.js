@@ -2,10 +2,18 @@ import { store } from './store.js';
 import { getYouTubeAccessToken } from './streamElements.js';
 import { fetchAllMembers } from './youtube.js';
 import { TIER_TO_ROLE, MANAGED_ROLES } from './config.js';
+import { checkAnniversaries } from './anniversaries.js';
+import { notifyOps } from '../ops.js';
 
 let running = false;
 let lastOwnerDmAt = 0;
 const OWNER_DM_COOLDOWN_MS = 6 * 60 * 60_000;
+
+let consecutiveMembersFailures = 0;
+const MEMBERS_FAIL_ALERT_THRESHOLD = 3;
+
+let lastYtMemberCount = null;
+export function getLastYtMemberCount() { return lastYtMemberCount; }
 
 async function dmOwner(client, message) {
   const now = Date.now();
@@ -44,10 +52,14 @@ export async function reconcile(client) {
           '⚠️ StreamElements JWT is missing or invalid. The membership-tier role sync is paused. ' +
           'Update the `SE_JWT` env var on Railway with a fresh token from streamelements.com → Account → Show secrets.'
         );
+        await notifyOps(client, 'se_jwt_invalid', `🚨 **SE_JWT invalid or missing** — membership sync paused. Owner has been DM'd.`);
       } else if (e.code === 'SE_NO_YT_TOKEN') {
         await dmOwner(client,
           '⚠️ StreamElements returned no YouTube access token. Re-link your YouTube channel in StreamElements account settings.'
         );
+        await notifyOps(client, 'se_no_yt_token', `🚨 **SE returned no YouTube token** — owner needs to re-link YT in StreamElements.`);
+      } else {
+        await notifyOps(client, 'se_request_failed', `⚠️ SE relay request failed: \`${e.message}\``);
       }
       return;
     }
@@ -55,16 +67,23 @@ export async function reconcile(client) {
     let members;
     try {
       members = await fetchAllMembers(accessToken);
+      consecutiveMembersFailures = 0;
     } catch (e) {
       console.error('❌ reconcile: members.list failed:', e.message);
       if (e.body) {
         try { console.error('   API error detail:', JSON.stringify(e.body)); }
         catch { console.error('   API error detail (unstringifiable):', e.body); }
       }
+      consecutiveMembersFailures++;
+      if (consecutiveMembersFailures >= MEMBERS_FAIL_ALERT_THRESHOLD) {
+        await notifyOps(client, 'members_list_failed',
+          `🚨 **members.list failed ${consecutiveMembersFailures}× in a row.** Last error: \`${e.message}\``);
+      }
       return;
     }
 
     const tierByChannel = new Map(members.map(m => [m.channelId, m.tierName]));
+    lastYtMemberCount = members.length;
     console.log(`🔁 reconcile: ${members.length} active members fetched`);
 
     const { links } = await store.read();
@@ -95,6 +114,12 @@ export async function reconcile(client) {
       }
     }
     console.log(`✅ reconcile done — added:${added} removed:${removed} skipped:${skipped}`);
+
+    try {
+      await checkAnniversaries(client, members);
+    } catch (e) {
+      console.error('🎂 anniversary check failed:', e.message);
+    }
   } finally {
     running = false;
   }
