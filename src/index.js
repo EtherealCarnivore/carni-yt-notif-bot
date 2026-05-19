@@ -10,6 +10,8 @@ import { attachWelcomeDmHandler } from './membership/welcome.js';
 import { buildLinkYouTubeRow } from './membership/linkButton.js';
 import { startStatsLoop } from './stats.js';
 import { notifyOps } from './ops.js';
+import { attachVerifyJoinHandler } from './verify.js';
+import { attachAuditHandlers } from './audit.js';
 
 dotenv.config();
 
@@ -45,7 +47,10 @@ const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers, // privileged — enable in dev portal
+    GatewayIntentBits.GuildMembers,    // privileged — enable in dev portal
+    GatewayIntentBits.GuildMessages,   // for audit log
+    GatewayIntentBits.MessageContent,  // privileged — enable in dev portal
+    GatewayIntentBits.GuildModeration, // ban/unban events for audit
   ]
 });
 
@@ -86,6 +91,16 @@ client.once('ready', async () => {
   }
 
   startStatsLoop(client);
+
+  if (process.env.DISCORD_UNVERIFIED_ROLE_ID) {
+    attachVerifyJoinHandler(client);
+    console.log('🛂 Verification gate active');
+  }
+
+  if (process.env.BOT_AUDIT_CHANNEL_ID) {
+    attachAuditHandlers(client);
+    console.log('📜 Audit log active');
+  }
 });
 
 async function initializeLastVideo() {

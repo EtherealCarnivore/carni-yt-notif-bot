@@ -13,6 +13,13 @@ import {
   buildLinkYouTubeEmbed,
   handleLinkYouTubeButton,
 } from './linkButton.js';
+import {
+  VERIFY_BUTTON_ID,
+  buildVerifyEmbed,
+  buildVerifyRow,
+  handleVerifyButton,
+} from '../verify.js';
+import { applyLockdown, liftLockdown } from '../lockdown.js';
 
 const COMMANDS = [
   new SlashCommandBuilder()
@@ -21,11 +28,28 @@ const COMMANDS = [
     .toJSON(),
   new SlashCommandBuilder()
     .setName('admin-sync')
-    .setDescription('(Owner only) Force a membership reconcile now.')
+    .setDescription('(Admin) Force a membership reconcile now.')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('admin-post-link-message')
-    .setDescription('(Owner only) Post the "Link YouTube" button in this channel.')
+    .setDescription('(Admin) Post the "Link YouTube" button in this channel.')
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('admin-post-verify-message')
+    .setDescription('(Admin) Post the "Verify I am human" button in this channel.')
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('emergency')
+    .setDescription('(Admin) Emergency server lockdown controls.')
+    .addSubcommand(s => s
+      .setName('mute')
+      .setDescription('Deny Send Messages for the verified role across all text channels.'))
+    .addSubcommand(s => s
+      .setName('quarantine')
+      .setDescription('Deny View Channel for the verified role across all text channels (nuclear).'))
+    .addSubcommand(s => s
+      .setName('unlock')
+      .setDescription('Restore permissions previously changed by mute or quarantine.'))
     .toJSON(),
 ];
 
@@ -47,13 +71,21 @@ function isAdmin(interaction) {
   return !!(perms && typeof perms.has === 'function' && perms.has(PermissionFlagsBits.ManageGuild));
 }
 
+async function denyIfNotAdmin(interaction) {
+  if (isAdmin(interaction)) return false;
+  await interaction.reply({ content: 'Not authorized. Requires Manage Server permission.', flags: MessageFlags.Ephemeral });
+  return true;
+}
+
 export function attachInteractionHandler(client) {
   client.on('interactionCreate', async (interaction) => {
     try {
-      // Button clicks
+      // ---- Button clicks ----
       if (interaction.isButton && interaction.isButton()) {
         if (interaction.customId === LINK_YT_BUTTON_ID) {
           await handleLinkYouTubeButton(interaction);
+        } else if (interaction.customId === VERIFY_BUTTON_ID) {
+          await handleVerifyButton(interaction);
         }
         return;
       }
@@ -74,10 +106,7 @@ export function attachInteractionHandler(client) {
       }
 
       if (interaction.commandName === 'admin-sync') {
-        if (!isAdmin(interaction)) {
-          await interaction.reply({ content: 'Not authorized. Requires Manage Server permission.', flags: MessageFlags.Ephemeral });
-          return;
-        }
+        if (await denyIfNotAdmin(interaction)) return;
         await interaction.reply({ content: 'Reconciling…', flags: MessageFlags.Ephemeral });
         reconcile(interaction.client)
           .then(() => interaction.followUp({ content: 'Done.', flags: MessageFlags.Ephemeral }).catch(() => {}))
@@ -86,15 +115,44 @@ export function attachInteractionHandler(client) {
       }
 
       if (interaction.commandName === 'admin-post-link-message') {
-        if (!isAdmin(interaction)) {
-          await interaction.reply({ content: 'Not authorized. Requires Manage Server permission.', flags: MessageFlags.Ephemeral });
-          return;
-        }
+        if (await denyIfNotAdmin(interaction)) return;
         await interaction.channel.send({
           embeds: [buildLinkYouTubeEmbed()],
           components: [buildLinkYouTubeRow()],
         });
         await interaction.reply({ content: 'Posted. Pin the message so it stays visible.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (interaction.commandName === 'admin-post-verify-message') {
+        if (await denyIfNotAdmin(interaction)) return;
+        await interaction.channel.send({
+          embeds: [buildVerifyEmbed()],
+          components: [buildVerifyRow()],
+        });
+        await interaction.reply({ content: 'Posted. Pin the message so it stays visible.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (interaction.commandName === 'emergency') {
+        if (await denyIfNotAdmin(interaction)) return;
+        const sub = interaction.options.getSubcommand();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        try {
+          if (sub === 'mute' || sub === 'quarantine') {
+            const { lockedCount } = await applyLockdown(interaction.guild, sub);
+            await interaction.editReply(`🚨 Lockdown **${sub}** applied across ${lockedCount} channel(s). Run \`/emergency unlock\` to restore.`);
+          } else if (sub === 'unlock') {
+            const { unlockedCount, alreadyUnlocked } = await liftLockdown(interaction.guild);
+            if (alreadyUnlocked) {
+              await interaction.editReply('Nothing to unlock — no active lockdown recorded.');
+            } else {
+              await interaction.editReply(`🔓 Restored permissions on ${unlockedCount} channel(s).`);
+            }
+          }
+        } catch (e) {
+          await interaction.editReply(`Failed: ${e.message}`);
+        }
         return;
       }
     } catch (e) {
