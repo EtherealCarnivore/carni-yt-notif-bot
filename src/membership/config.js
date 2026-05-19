@@ -7,6 +7,15 @@ export const TIER_TO_ROLE = {
   "Saving for RAM Until 2029":  "1505899798719496292",
 };
 
+// Map tier name → the Discord channel ID it unlocks. Used only by the perks
+// board (/admin-post-perks) for display. Keys should match TIER_TO_ROLE.
+// Leave a tier out and the board just shows its name without a channel link.
+export const TIER_TO_CHANNEL = {
+  // "BIG FAN's UWU":              "channel_id_for_tier_1",
+  // "Headset SAVINGS":            "channel_id_for_tier_2",
+  // "Saving for RAM Until 2029":  "channel_id_for_tier_3",
+};
+
 // Roles the bot is allowed to add/remove during reconcile. Any role on a
 // member that is NOT in this set is left alone.
 export const MANAGED_ROLES = new Set(Object.values(TIER_TO_ROLE));

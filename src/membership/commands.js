@@ -12,6 +12,8 @@ import {
   buildLinkYouTubeRow,
   buildLinkYouTubeEmbed,
   handleLinkYouTubeButton,
+  buildPerksEmbed,
+  buildPerksRow,
 } from './linkButton.js';
 import {
   VERIFY_BUTTON_ID,
@@ -37,6 +39,10 @@ const COMMANDS = [
   new SlashCommandBuilder()
     .setName('admin-post-verify-message')
     .setDescription('(Admin) Post the "Verify I am human" button in this channel.')
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('admin-post-perks')
+    .setDescription('(Admin) Post the membership perks board in this channel.')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('emergency')
@@ -131,6 +137,16 @@ export function attachInteractionHandler(client) {
           components: [buildVerifyRow()],
         });
         await interaction.reply({ content: 'Posted. Pin the message so it stays visible.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (interaction.commandName === 'admin-post-perks') {
+        if (await denyIfNotAdmin(interaction)) return;
+        await interaction.channel.send({
+          embeds: [buildPerksEmbed()],
+          components: [buildPerksRow()],
+        });
+        await interaction.reply({ content: 'Posted. Pin it. Re-run after editing tiers/channels to refresh (delete the old one).', flags: MessageFlags.Ephemeral });
         return;
       }
 
