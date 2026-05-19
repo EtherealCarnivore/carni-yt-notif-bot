@@ -12,6 +12,7 @@ import { startStatsLoop } from './stats.js';
 import { notifyOps } from './ops.js';
 import { attachVerifyJoinHandler } from './verify.js';
 import { attachAuditHandlers } from './audit.js';
+import { mountCaptchaRoutes } from './captcha.js';
 
 dotenv.config();
 
@@ -220,6 +221,8 @@ app.get('/', (req, res) => {
 if (MEMBERSHIP_ENABLED) {
   mountMembershipRoutes(app, client);
 }
+
+mountCaptchaRoutes(app, client);
 
 // Start Express server
 const PORT = process.env.PORT || 3000;

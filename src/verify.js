@@ -1,6 +1,6 @@
 // Verification gate. New joiners get @Unverified (one channel visible). They
-// click a button to swap to @Verified. Optional account-age gate filters out
-// very-new accounts (bot-friendly heuristic).
+// click a button to swap to @Verified. Optional captcha (Cloudflare Turnstile)
+// inserts itself between the button click and the role swap.
 
 import {
   ActionRowBuilder,
@@ -10,6 +10,7 @@ import {
   Events,
   MessageFlags,
 } from 'discord.js';
+import { issueCaptchaState } from './captcha.js';
 
 export const VERIFY_BUTTON_ID = 'verify_human';
 
@@ -54,15 +55,44 @@ export function attachVerifyJoinHandler(client) {
   });
 }
 
-export async function handleVerifyButton(interaction) {
+// Idempotent role swap. Called from both the button-direct path and the
+// captcha-callback path. Returns { ok, reason }.
+export async function assignVerifiedRole(client, discordUserId) {
   const unverifiedRoleId = process.env.DISCORD_UNVERIFIED_ROLE_ID;
   const verifiedRoleId = process.env.DISCORD_VERIFIED_ROLE_ID;
-  if (!verifiedRoleId) {
+  if (!verifiedRoleId) return { ok: false, reason: 'not_configured' };
+
+  const guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID).catch(() => null);
+  if (!guild) return { ok: false, reason: 'no_guild' };
+
+  const member = await guild.members.fetch(discordUserId).catch(() => null);
+  if (!member) return { ok: false, reason: 'not_in_guild' };
+
+  if (member.roles.cache.has(verifiedRoleId)) {
+    return { ok: true, reason: 'already_verified' };
+  }
+
+  try {
+    if (unverifiedRoleId && member.roles.cache.has(unverifiedRoleId)) {
+      await member.roles.remove(unverifiedRoleId, 'Verified');
+    }
+    await member.roles.add(verifiedRoleId, 'Verified');
+    console.log(`✅ Verified ${member.user.tag}`);
+    return { ok: true };
+  } catch (e) {
+    console.error('❌ assignVerifiedRole failed:', e.message);
+    return { ok: false, reason: e.message };
+  }
+}
+
+export async function handleVerifyButton(interaction) {
+  if (!process.env.DISCORD_VERIFIED_ROLE_ID) {
     await interaction.reply({ content: 'Verification is not configured. Ping a mod.', flags: MessageFlags.Ephemeral });
     return;
   }
 
-  // Account-age check
+  // Account-age check (cheap pre-filter; happens before captcha so we don't
+  // waste a Turnstile load on accounts that can't proceed anyway).
   const accountAgeMs = Date.now() - interaction.user.createdAt.getTime();
   if (accountAgeMs < minAgeMs()) {
     const days = Math.ceil((minAgeMs() - accountAgeMs) / (24 * 60 * 60_000));
@@ -76,25 +106,28 @@ export async function handleVerifyButton(interaction) {
   }
 
   const member = interaction.member;
-  if (!member) {
-    await interaction.reply({ content: 'Could not resolve your guild membership.', flags: MessageFlags.Ephemeral });
-    return;
-  }
-
-  if (member.roles.cache.has(verifiedRoleId)) {
+  if (member?.roles?.cache?.has(process.env.DISCORD_VERIFIED_ROLE_ID)) {
     await interaction.reply({ content: 'You are already verified.', flags: MessageFlags.Ephemeral });
     return;
   }
 
-  try {
-    if (unverifiedRoleId && member.roles.cache.has(unverifiedRoleId)) {
-      await member.roles.remove(unverifiedRoleId, 'Verified via button');
-    }
-    await member.roles.add(verifiedRoleId, 'Verified via button');
+  // Branch: Turnstile if configured, else direct role swap.
+  if (process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY && process.env.PUBLIC_BASE_URL) {
+    const state = issueCaptchaState(interaction.user.id);
+    const url = `${process.env.PUBLIC_BASE_URL}/verify/captcha?state=${state}`;
+    await interaction.reply({
+      content:
+        `One more step: click here to complete the human check → <${url}>\n` +
+        `Link expires in 10 minutes.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const result = await assignVerifiedRole(interaction.client, interaction.user.id);
+  if (result.ok) {
     await interaction.reply({ content: '✅ Verified. Welcome in.', flags: MessageFlags.Ephemeral });
-    console.log(`✅ Verified ${interaction.user.tag}`);
-  } catch (e) {
-    console.error('❌ verify role swap failed:', e.message);
-    await interaction.reply({ content: `Failed to verify: ${e.message}`, flags: MessageFlags.Ephemeral });
+  } else {
+    await interaction.reply({ content: `Failed to verify: ${result.reason}`, flags: MessageFlags.Ephemeral });
   }
 }
