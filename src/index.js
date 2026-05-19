@@ -61,21 +61,24 @@ let lastVideoId = null;
 client.once('ready', async () => {
   console.log(`✅ Bot logged in as ${client.user.tag}`);
 
-  // Get the notification channel
+  // Get the notification channel. Non-fatal — if it's missing, we just skip
+  // video notifications; membership sync, slash commands, etc. still run.
   try {
     notificationChannel = await client.channels.fetch(process.env.DISCORD_CHANNEL_ID);
     console.log(`✅ Connected to channel: ${notificationChannel.name}`);
   } catch (error) {
-    console.error('❌ Could not fetch notification channel:', error.message);
-    return;
+    console.error('⚠️ Could not fetch notification channel — video notifications disabled:', error.message);
+    notificationChannel = null;
   }
 
-  // Initialize with latest video (don't notify on startup)
-  await initializeLastVideo();
-
-  // Start polling
-  console.log(`🔄 Starting YouTube RSS polling (every ${CHECK_INTERVAL / 60000} minutes)`);
-  setInterval(checkForNewVideos, CHECK_INTERVAL);
+  // Start video polling only if we have somewhere to post.
+  if (notificationChannel) {
+    await initializeLastVideo();
+    console.log(`🔄 Starting YouTube RSS polling (every ${CHECK_INTERVAL / 60000} minutes)`);
+    setInterval(checkForNewVideos, CHECK_INTERVAL);
+  } else {
+    console.warn('⚠️ Skipping YouTube RSS polling (no notification channel)');
+  }
 
   // Membership sync
   if (MEMBERSHIP_ENABLED) {
