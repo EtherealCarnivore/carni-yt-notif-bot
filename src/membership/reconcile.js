@@ -1,6 +1,6 @@
 import { store } from './store.js';
 import { getYouTubeAccessToken } from './streamElements.js';
-import { fetchAllMembers } from './youtube.js';
+import { fetchAllMembers, fetchChannelStats } from './youtube.js';
 import { TIER_TO_ROLE, MANAGED_ROLES } from './config.js';
 import { checkAnniversaries } from './anniversaries.js';
 import { notifyOps } from '../ops.js';
@@ -13,7 +13,9 @@ let consecutiveMembersFailures = 0;
 const MEMBERS_FAIL_ALERT_THRESHOLD = 3;
 
 let lastYtMemberCount = null;
+let lastSubscriberCount = null;
 export function getLastYtMemberCount() { return lastYtMemberCount; }
+export function getLastSubscriberCount() { return lastSubscriberCount; }
 
 async function dmOwner(client, message) {
   const now = Date.now();
@@ -85,6 +87,16 @@ export async function reconcile(client) {
     const tierByChannel = new Map(members.map(m => [m.channelId, m.tierName]));
     lastYtMemberCount = members.length;
     console.log(`🔁 reconcile: ${members.length} active members fetched`);
+
+    try {
+      const stats = await fetchChannelStats(accessToken);
+      if (stats?.subscriberCount != null) {
+        lastSubscriberCount = stats.subscriberCount;
+        console.log(`🔁 reconcile: subscriber count = ${stats.subscriberCount}`);
+      }
+    } catch (e) {
+      console.warn('⚠️ reconcile: channels.list failed (subscriber count won\'t update this cycle):', e.message);
+    }
 
     const { links } = await store.read();
     const guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);

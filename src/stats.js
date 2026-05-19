@@ -2,7 +2,15 @@
 // Discord rate-limits channel renames to ~2 per 10 min per channel, so update
 // no more often than every 15 minutes.
 
-import { getLastYtMemberCount } from './membership/reconcile.js';
+import { getLastYtMemberCount, getLastSubscriberCount } from './membership/reconcile.js';
+
+function formatCount(n) {
+  if (n == null) return null;
+  // Discord channel names have a 100-char limit; large numbers stay readable
+  // as raw ints. No comma formatting since the channel name will get truncated
+  // unpredictably across locales otherwise.
+  return String(n);
+}
 
 const STATS_INTERVAL_MS = 15 * 60_000;
 
@@ -30,12 +38,16 @@ async function updateStatsChannels(client) {
   }
 
   const ytMembers = getLastYtMemberCount();
+  const subs = getLastSubscriberCount();
 
   if (memberCount != null) {
-    await safeRename(client, process.env.STATS_MEMBERS_CHANNEL_ID, `👥 Members: ${memberCount}`);
+    await safeRename(client, process.env.STATS_MEMBERS_CHANNEL_ID, `👥 Members: ${formatCount(memberCount)}`);
+  }
+  if (subs != null) {
+    await safeRename(client, process.env.STATS_YT_SUBS_CHANNEL_ID, `🎬 YT Subscribers: ${formatCount(subs)}`);
   }
   if (ytMembers != null) {
-    await safeRename(client, process.env.STATS_YT_MEMBERS_CHANNEL_ID, `💎 YT Members: ${ytMembers}`);
+    await safeRename(client, process.env.STATS_YT_MEMBERS_CHANNEL_ID, `💎 YT Members: ${formatCount(ytMembers)}`);
   }
 }
 

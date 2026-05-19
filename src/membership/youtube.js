@@ -2,6 +2,31 @@
 // token (obtained via StreamElements) rather than a Google OAuth client.
 
 const MEMBERS_URL = 'https://www.googleapis.com/youtube/v3/members';
+const CHANNELS_URL = 'https://www.googleapis.com/youtube/v3/channels';
+
+export async function fetchChannelStats(accessToken) {
+  const url = new URL(CHANNELS_URL);
+  url.searchParams.set('part', 'statistics');
+  url.searchParams.set('mine', 'true');
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(`channels.list failed: ${res.status} ${text.slice(0, 200)}`);
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  const item = (data.items ?? [])[0];
+  if (!item) return null;
+  const subs = item?.statistics?.subscriberCount;
+  return {
+    subscriberCount: subs != null ? Number(subs) : null,
+  };
+}
 
 export async function fetchAllMembers(accessToken) {
   const out = [];
