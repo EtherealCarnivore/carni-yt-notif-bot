@@ -7,7 +7,7 @@ import { registerCommands, attachInteractionHandler } from './membership/command
 import { reconcile } from './membership/reconcile.js';
 import { RECONCILE_INTERVAL_MS } from './membership/config.js';
 import { attachWelcomeDmHandler } from './membership/welcome.js';
-import { buildLinkYouTubeRow } from './membership/linkButton.js';
+import { buildVideoNotificationRow } from './membership/linkButton.js';
 import { startStatsLoop } from './stats.js';
 import { notifyOps } from './ops.js';
 import { attachVerifyJoinHandler } from './verify.js';
@@ -173,7 +173,7 @@ async function sendVideoNotification(video, feed) {
     ? `<@&${process.env.DISCORD_ROLE_ID}> 🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`
     : `🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`;
 
-  const components = MEMBERSHIP_ENABLED ? [buildLinkYouTubeRow()] : [];
+  const components = [buildVideoNotificationRow(MEMBERSHIP_ENABLED)];
 
   try {
     await notificationChannel.send({ content, components });

@@ -9,6 +9,10 @@ import { issueUserLinkState, buildUserAuthUrl } from './discordAuth.js';
 
 export const LINK_YT_BUTTON_ID = 'link_yt';
 
+function channelUrl() {
+  return process.env.YOUTUBE_CHANNEL_URL || 'https://www.youtube.com/@Iva_m1';
+}
+
 export function buildLinkYouTubeRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -17,6 +21,33 @@ export function buildLinkYouTubeRow() {
       .setEmoji('🔗')
       .setStyle(ButtonStyle.Primary),
   );
+}
+
+// Row for new-video notifications: Subscribe + All Videos (link buttons),
+// plus the Link YouTube interaction button when membership sync is on.
+export function buildVideoNotificationRow(includeLinkButton) {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel('Subscribe')
+      .setEmoji('🔔')
+      .setStyle(ButtonStyle.Link)
+      .setURL(`${channelUrl()}?sub_confirmation=1`),
+    new ButtonBuilder()
+      .setLabel('All Videos')
+      .setEmoji('📺')
+      .setStyle(ButtonStyle.Link)
+      .setURL(`${channelUrl()}/videos`),
+  );
+  if (includeLinkButton) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(LINK_YT_BUTTON_ID)
+        .setLabel('Link YouTube')
+        .setEmoji('🔗')
+        .setStyle(ButtonStyle.Primary),
+    );
+  }
+  return row;
 }
 
 export function buildLinkYouTubeEmbed() {
