@@ -4,7 +4,7 @@
 //
 // Requires the MessageContent and GuildMessages intents on the client.
 
-import { EmbedBuilder, Events } from 'discord.js';
+import { EmbedBuilder, Events, AuditLogEvent } from 'discord.js';
 
 const MAX_CACHE = 5000;
 const cache = new Map(); // messageId → { authorId, authorTag, channelId, content, attachments, createdAt }
@@ -132,11 +132,36 @@ export function attachAuditHandlers(client) {
 
   client.on(Events.GuildMemberRemove, async (member) => {
     if (member.guild.id !== process.env.DISCORD_GUILD_ID) return;
-    const embed = new EmbedBuilder()
-      .setColor(0x747F8D)
-      .setTitle('📤 Member left')
-      .setDescription(`<@${member.id}> (${member.user.tag})`)
-      .setTimestamp(new Date());
+
+    // Cross-reference the native audit log to see if this was a kick.
+    let kick = null;
+    try {
+      const logs = await member.guild.fetchAuditLogs({ type: AuditLogEvent.MemberKick, limit: 5 });
+      const entry = logs.entries.find(e =>
+        e.target?.id === member.id && (Date.now() - e.createdTimestamp) < 8000
+      );
+      if (entry) kick = { executor: entry.executor, reason: entry.reason };
+    } catch {
+      // Bot lacks View Audit Log permission, or the fetch failed — fall back
+      // to a plain "left" entry.
+    }
+
+    const embed = new EmbedBuilder().setTimestamp(new Date());
+    if (kick) {
+      embed
+        .setColor(0xED4245)
+        .setTitle('👢 Member kicked')
+        .setDescription(`<@${member.id}> (${member.user.tag})`)
+        .addFields(
+          { name: 'Kicked by', value: kick.executor ? `<@${kick.executor.id}> (${kick.executor.tag})` : 'Unknown', inline: true },
+          { name: 'Reason', value: kick.reason || '*(none)*' },
+        );
+    } else {
+      embed
+        .setColor(0x747F8D)
+        .setTitle('📤 Member left')
+        .setDescription(`<@${member.id}> (${member.user.tag})`);
+    }
     await post(client, embed);
   });
 
