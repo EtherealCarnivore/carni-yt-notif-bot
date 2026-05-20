@@ -1,6 +1,8 @@
-// Self-service role picker. One pinned message with toggle buttons; clicking
-// adds the role if absent, removes it if present. Only renders buttons for
-// roles that are actually configured via env vars.
+// Self-service role picker. The pinned message has a "Manage Notifications"
+// button; clicking it opens a per-user ephemeral panel whose buttons are
+// colored to that user's current roles (green ✓ = has it). Toggling re-renders
+// the ephemeral in place. Per-user colors aren't possible on the shared pinned
+// message, which is why the real controls live in the ephemeral.
 
 import {
   ActionRowBuilder,
@@ -11,55 +13,80 @@ import {
 } from 'discord.js';
 import { LINK_YT_BUTTON_ID } from './membership/linkButton.js';
 
+export const ROLE_MENU_OPEN_ID = 'roles_open';
 export const ROLE_BUTTON_IDS = {
-  video: 'role_video',
   poe1: 'role_poe1',
   poe2: 'role_poe2',
 };
 
+const META = {
+  [ROLE_BUTTON_IDS.poe1]: { label: 'PoE 1 Pings', emoji: '⚔️', env: 'POE1_PING_ROLE_ID' },
+  [ROLE_BUTTON_IDS.poe2]: { label: 'PoE 2 Pings', emoji: '🔮', env: 'POE2_PING_ROLE_ID' },
+};
+
 function roleIdFor(buttonId) {
-  switch (buttonId) {
-    case ROLE_BUTTON_IDS.video: return process.env.DISCORD_ROLE_ID;
-    case ROLE_BUTTON_IDS.poe1: return process.env.POE1_PING_ROLE_ID;
-    case ROLE_BUTTON_IDS.poe2: return process.env.POE2_PING_ROLE_ID;
-    default: return null;
-  }
+  const meta = META[buttonId];
+  return meta ? process.env[meta.env] : null;
 }
 
 export function isRoleToggleButton(customId) {
-  return Object.values(ROLE_BUTTON_IDS).includes(customId);
+  return Object.prototype.hasOwnProperty.call(META, customId);
+}
+export function isRoleMenuOpen(customId) {
+  return customId === ROLE_MENU_OPEN_ID;
 }
 
+// ---- Pinned (shared) message ----
 export function buildRolePickerEmbed() {
-  const lines = [];
-  if (process.env.DISCORD_ROLE_ID) lines.push('🔔 **Video Pings** — new YouTube uploads');
-  if (process.env.POE1_PING_ROLE_ID) lines.push('⚔️ **PoE 1 Pings** — Path of Exile patch notes');
-  if (process.env.POE2_PING_ROLE_ID) lines.push('🔮 **PoE 2 Pings** — Path of Exile 2 patch notes');
-  lines.push('💎 **Link YouTube** — claim your channel-membership role');
-
   return new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle('Pick your notifications')
+    .setTitle('Notifications & Membership')
     .setDescription(
-      'Tap a button to toggle a role on or off. Tap again to remove it.\n\n' +
-      lines.join('\n')
-    )
-    .setFooter({ text: 'Your choices are private — only you see the confirmation.' });
+      'Tap **Manage Notifications** to pick your patch-note pings. ' +
+      'A green ✓ shows what you already have.\n\n' +
+      '⚔️ **PoE 1 Pings** — Path of Exile patch notes\n' +
+      '🔮 **PoE 2 Pings** — Path of Exile 2 patch notes\n' +
+      '💎 **Link YouTube** — claim your channel-membership role'
+    );
 }
 
 export function buildRolePickerRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(ROLE_MENU_OPEN_ID).setLabel('Manage Notifications').setEmoji('🔔').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(LINK_YT_BUTTON_ID).setLabel('Link YouTube').setEmoji('🔗').setStyle(ButtonStyle.Secondary),
+  );
+}
+
+// ---- Per-user ephemeral panel ----
+function buildManageComponents(member) {
   const row = new ActionRowBuilder();
-  if (process.env.DISCORD_ROLE_ID) {
-    row.addComponents(new ButtonBuilder().setCustomId(ROLE_BUTTON_IDS.video).setLabel('Video Pings').setEmoji('🔔').setStyle(ButtonStyle.Secondary));
+  let any = false;
+  for (const buttonId of Object.keys(META)) {
+    const roleId = roleIdFor(buttonId);
+    if (!roleId) continue;
+    any = true;
+    const has = member.roles.cache.has(roleId);
+    const meta = META[buttonId];
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(buttonId)
+        .setLabel(has ? `${meta.label} ✓` : meta.label)
+        .setEmoji(meta.emoji)
+        .setStyle(has ? ButtonStyle.Success : ButtonStyle.Secondary),
+    );
   }
-  if (process.env.POE1_PING_ROLE_ID) {
-    row.addComponents(new ButtonBuilder().setCustomId(ROLE_BUTTON_IDS.poe1).setLabel('PoE 1 Pings').setEmoji('⚔️').setStyle(ButtonStyle.Secondary));
+  return any ? [row] : [];
+}
+
+const MANAGE_TEXT = 'Toggle your pings — **green ✓** means you have it:';
+
+export async function handleRoleMenuOpen(interaction) {
+  const components = buildManageComponents(interaction.member);
+  if (components.length === 0) {
+    await interaction.reply({ content: 'No notification roles are configured right now.', flags: MessageFlags.Ephemeral });
+    return;
   }
-  if (process.env.POE2_PING_ROLE_ID) {
-    row.addComponents(new ButtonBuilder().setCustomId(ROLE_BUTTON_IDS.poe2).setLabel('PoE 2 Pings').setEmoji('🔮').setStyle(ButtonStyle.Secondary));
-  }
-  row.addComponents(new ButtonBuilder().setCustomId(LINK_YT_BUTTON_ID).setLabel('Link YouTube').setEmoji('🔗').setStyle(ButtonStyle.Primary));
-  return row;
+  await interaction.reply({ content: MANAGE_TEXT, components, flags: MessageFlags.Ephemeral });
 }
 
 export async function handleRoleToggleButton(interaction) {
@@ -69,19 +96,11 @@ export async function handleRoleToggleButton(interaction) {
     return;
   }
   const member = interaction.member;
-  if (!member) {
-    await interaction.reply({ content: 'Could not resolve your membership.', flags: MessageFlags.Ephemeral });
-    return;
-  }
   try {
-    const noPing = { parse: [] };
-    if (member.roles.cache.has(roleId)) {
-      await member.roles.remove(roleId, 'Self-service role toggle');
-      await interaction.reply({ content: `Removed <@&${roleId}>.`, flags: MessageFlags.Ephemeral, allowedMentions: noPing });
-    } else {
-      await member.roles.add(roleId, 'Self-service role toggle');
-      await interaction.reply({ content: `Added <@&${roleId}>.`, flags: MessageFlags.Ephemeral, allowedMentions: noPing });
-    }
+    const updated = member.roles.cache.has(roleId)
+      ? await member.roles.remove(roleId, 'Self-service role toggle')
+      : await member.roles.add(roleId, 'Self-service role toggle');
+    await interaction.update({ content: MANAGE_TEXT, components: buildManageComponents(updated) });
   } catch (e) {
     await interaction.reply({ content: `Failed: ${e.message}`, flags: MessageFlags.Ephemeral });
   }

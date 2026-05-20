@@ -24,7 +24,9 @@ import {
 import { applyLockdown, liftLockdown } from '../lockdown.js';
 import {
   isRoleToggleButton,
+  isRoleMenuOpen,
   handleRoleToggleButton,
+  handleRoleMenuOpen,
   buildRolePickerEmbed,
   buildRolePickerRow,
 } from '../rolePicker.js';
@@ -102,6 +104,8 @@ export function attachInteractionHandler(client) {
           await handleLinkYouTubeButton(interaction);
         } else if (interaction.customId === VERIFY_BUTTON_ID) {
           await handleVerifyButton(interaction);
+        } else if (isRoleMenuOpen(interaction.customId)) {
+          await handleRoleMenuOpen(interaction);
         } else if (isRoleToggleButton(interaction.customId)) {
           await handleRoleToggleButton(interaction);
         }
