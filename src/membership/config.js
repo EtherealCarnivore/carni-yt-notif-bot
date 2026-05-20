@@ -2,9 +2,9 @@
 // The owner gives you the exact tier names from their /join page; fill in the
 // role IDs you create in the Discord server.
 export const TIER_TO_ROLE = {
-  "BIG FAN's UWU":              "1505899564304175216",
-  "Headset SAVINGS":            "1505899706901991424",
-  "Saving for RAM Until 2029":  "1505899798719496292",
+  "BIG FAN's UWU":              "1506583702711570482",
+  "Headset SAVINGS":            "1506583777592475658",
+  "Saving for RAM Until 2029":  "1506583830281060433",
 };
 
 // Map tier name → the Discord channel ID it unlocks. Used only by the perks
