@@ -13,7 +13,7 @@ import { notifyOps } from './ops.js';
 import { attachVerifyJoinHandler } from './verify.js';
 import { attachAuditHandlers } from './audit.js';
 import { mountCaptchaRoutes } from './captcha.js';
-import { startPoePatchPoller } from './poePatchNotes.js';
+import { startPoePatchPoller, postLatestForTest } from './poePatchNotes.js';
 
 dotenv.config();
 
@@ -207,6 +207,17 @@ app.get('/test', async (req, res) => {
       video: latestVideo.title,
       url: `https://www.youtube.com/watch?v=${latestVideo.id.split(':').pop()}`
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Test endpoint — force-posts the latest PoE patch note for each game
+app.get('/test-poe', async (req, res) => {
+  try {
+    const result = await postLatestForTest(client);
+    if (result.error) return res.status(502).json({ success: false, ...result });
+    res.json({ success: true, ...result });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -107,6 +107,29 @@ async function poll(client) {
   }
 }
 
+// Force-post the latest patch note for each configured game, bypassing the
+// seen-set. For manual testing via the /test-poe endpoint.
+export async function postLatestForTest(client) {
+  let feed;
+  try {
+    feed = await parser.parseURL(FEED);
+  } catch (e) {
+    return { error: `feed fetch failed: ${e.message}` };
+  }
+
+  const patchItems = (feed.items || []).filter(it => isPatchNote(it.title));
+  const results = [];
+  for (const game of ['poe1', 'poe2']) {
+    const channelId = channelFor(game);
+    if (!channelId) { results.push({ game, skipped: 'no channel configured' }); continue; }
+    const item = patchItems.find(it => classifyGame(it.title) === game);
+    if (!item) { results.push({ game, skipped: 'no patch note found in current feed' }); continue; }
+    await postPatchNote(client, channelId, game, item);
+    results.push({ game, posted: item.title });
+  }
+  return { results };
+}
+
 export function startPoePatchPoller(client) {
   const enabled = !!(process.env.POE1_PATCH_CHANNEL_ID || process.env.POE2_PATCH_CHANNEL_ID);
   if (!enabled) {
