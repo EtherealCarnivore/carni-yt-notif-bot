@@ -13,6 +13,7 @@ import { notifyOps } from './ops.js';
 import { attachVerifyJoinHandler } from './verify.js';
 import { attachAuditHandlers } from './audit.js';
 import { mountCaptchaRoutes } from './captcha.js';
+import { startPoePatchPoller } from './poePatchNotes.js';
 
 dotenv.config();
 
@@ -95,6 +96,7 @@ client.once('ready', async () => {
   }
 
   startStatsLoop(client);
+  startPoePatchPoller(client);
 
   if (process.env.DISCORD_UNVERIFIED_ROLE_ID) {
     attachVerifyJoinHandler(client);
