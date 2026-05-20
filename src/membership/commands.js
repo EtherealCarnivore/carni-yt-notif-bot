@@ -22,6 +22,12 @@ import {
   handleVerifyButton,
 } from '../verify.js';
 import { applyLockdown, liftLockdown } from '../lockdown.js';
+import {
+  isRoleToggleButton,
+  handleRoleToggleButton,
+  buildRolePickerEmbed,
+  buildRolePickerRow,
+} from '../rolePicker.js';
 
 const COMMANDS = [
   new SlashCommandBuilder()
@@ -43,6 +49,10 @@ const COMMANDS = [
   new SlashCommandBuilder()
     .setName('admin-post-perks')
     .setDescription('(Admin) Post the membership perks board in this channel.')
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('admin-post-roles')
+    .setDescription('(Admin) Post the self-service notification role picker in this channel.')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('emergency')
@@ -92,6 +102,8 @@ export function attachInteractionHandler(client) {
           await handleLinkYouTubeButton(interaction);
         } else if (interaction.customId === VERIFY_BUTTON_ID) {
           await handleVerifyButton(interaction);
+        } else if (isRoleToggleButton(interaction.customId)) {
+          await handleRoleToggleButton(interaction);
         }
         return;
       }
@@ -147,6 +159,16 @@ export function attachInteractionHandler(client) {
           components: [buildPerksRow()],
         });
         await interaction.reply({ content: 'Posted. Pin it. Re-run after editing tiers/channels to refresh (delete the old one).', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      if (interaction.commandName === 'admin-post-roles') {
+        if (await denyIfNotAdmin(interaction)) return;
+        await interaction.channel.send({
+          embeds: [buildRolePickerEmbed()],
+          components: [buildRolePickerRow()],
+        });
+        await interaction.reply({ content: 'Posted. Pin the message so it stays visible.', flags: MessageFlags.Ephemeral });
         return;
       }
 
