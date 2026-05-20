@@ -41,15 +41,21 @@ async function post(client, embed) {
   }
 }
 
+// Partial messages don't always resolve `.guild`, but they carry `.guildId`.
+function inGuild(obj) {
+  const gid = obj?.guildId || obj?.guild?.id;
+  return gid === process.env.DISCORD_GUILD_ID;
+}
+
 export function attachAuditHandlers(client) {
   // Cache messages we see so we can show "before" content on edit/delete.
   client.on(Events.MessageCreate, (msg) => {
-    if (msg.guild?.id !== process.env.DISCORD_GUILD_ID) return;
+    if (!inGuild(msg)) return;
     cacheMessage(msg);
   });
 
   client.on(Events.MessageDelete, async (msg) => {
-    if (msg.guild?.id !== process.env.DISCORD_GUILD_ID) return;
+    if (!inGuild(msg)) return;
     const cached = cache.get(msg.id);
     const author = msg.author ?? (cached ? { id: cached.authorId, tag: cached.authorTag } : null);
     if (author?.bot) return;
@@ -73,7 +79,7 @@ export function attachAuditHandlers(client) {
 
   client.on(Events.MessageBulkDelete, async (messages) => {
     const first = messages.first();
-    if (first?.guild?.id !== process.env.DISCORD_GUILD_ID) return;
+    if (!inGuild(first)) return;
     const lines = [];
     for (const m of messages.values()) {
       const c = cache.get(m.id);
@@ -91,10 +97,14 @@ export function attachAuditHandlers(client) {
   });
 
   client.on(Events.MessageUpdate, async (oldMsg, newMsg) => {
-    if (newMsg.guild?.id !== process.env.DISCORD_GUILD_ID) return;
+    if (!inGuild(newMsg)) return;
+    // Resolve a partial so we have author/content for the "after" side.
+    if (newMsg.partial) {
+      try { newMsg = await newMsg.fetch(); } catch { return; }
+    }
     if (newMsg.author?.bot) return;
     // Sometimes "update" fires for pin/embed changes — skip if content didn't change.
-    const before = oldMsg.content ?? cache.get(newMsg.id)?.content ?? null;
+    const before = oldMsg?.content ?? cache.get(newMsg.id)?.content ?? null;
     const after = newMsg.content ?? '';
     if (before === after) {
       cacheMessage(newMsg);

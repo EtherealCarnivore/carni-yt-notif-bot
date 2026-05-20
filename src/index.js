@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, Partials } from 'discord.js';
 import Parser from 'rss-parser';
 import express from 'express';
 import dotenv from 'dotenv';
@@ -53,7 +53,17 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,   // for audit log
     GatewayIntentBits.MessageContent,  // privileged — enable in dev portal
     GatewayIntentBits.GuildModeration, // ban/unban events for audit
-  ]
+  ],
+  // Required to receive delete/edit events for messages (and leave events for
+  // members) that aren't in the bot's cache — e.g. anything from before the
+  // bot last started. Without these, the audit log only catches activity on
+  // messages the bot saw posted while running.
+  partials: [
+    Partials.Message,
+    Partials.Channel,
+    Partials.GuildMember,
+    Partials.User,
+  ],
 });
 
 let notificationChannel = null;
