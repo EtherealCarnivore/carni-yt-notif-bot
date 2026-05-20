@@ -78,6 +78,16 @@ export async function assignVerifiedRole(client, discordUserId) {
     }
     await member.roles.add(verifiedRoleId, 'Verified');
     console.log(`✅ Verified ${member.user.tag}`);
+
+    // Best-effort welcome DM pointing to the set-roles channel.
+    const setRolesId = process.env.DISCORD_SET_ROLES_CHANNEL_ID;
+    const where = setRolesId ? `<#${setRolesId}>` : '#set-roles';
+    member.send(
+      `✅ You're verified — welcome to **${guild.name}**!\n\n` +
+      `Head to ${where} to pick your notifications (new videos, PoE patch notes) ` +
+      `and to link your YouTube membership for member perks.`
+    ).catch(() => {}); // DMs may be closed — non-fatal
+
     return { ok: true };
   } catch (e) {
     console.error('❌ assignVerifiedRole failed:', e.message);
