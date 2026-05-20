@@ -11,9 +11,9 @@ export const TIER_TO_ROLE = {
 // board (/admin-post-perks) for display. Keys should match TIER_TO_ROLE.
 // Leave a tier out and the board just shows its name without a channel link.
 export const TIER_TO_CHANNEL = {
-  // "BIG FAN's UWU":              "channel_id_for_tier_1",
-  // "Headset SAVINGS":            "channel_id_for_tier_2",
-  // "Saving for RAM Until 2029":  "channel_id_for_tier_3",
+  "BIG FAN's UWU":              "1506588400134656042",
+  "Headset SAVINGS":            "1506588594700161065",
+  "Saving for RAM Until 2029":  "1506588624873984060",
 };
 
 // Roles the bot is allowed to add/remove during reconcile. Any role on a
