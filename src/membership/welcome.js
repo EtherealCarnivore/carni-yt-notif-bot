@@ -1,5 +1,6 @@
 import { Events } from 'discord.js';
 import { buildLinkYouTubeRow, buildLinkYouTubeEmbed } from './linkButton.js';
+import { WELCOME } from '../copy.js';
 
 export function attachWelcomeDmHandler(client) {
   client.on(Events.GuildMemberAdd, async (member) => {
@@ -7,7 +8,7 @@ export function attachWelcomeDmHandler(client) {
     if (member.guild.id !== process.env.DISCORD_GUILD_ID) return;
     try {
       await member.send({
-        content: `👋 Welcome to ${member.guild.name}!`,
+        content: WELCOME.joinDmGreeting(member.guild.name),
         embeds: [buildLinkYouTubeEmbed()],
         components: [buildLinkYouTubeRow()],
       });

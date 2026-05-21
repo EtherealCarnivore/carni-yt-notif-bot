@@ -4,6 +4,7 @@
 
 import Parser from 'rss-parser';
 import { EmbedBuilder } from 'discord.js';
+import { POE } from './copy.js';
 
 const parser = new Parser();
 const FEED = process.env.POE_NEWS_RSS_URL || 'https://www.pathofexile.com/news/rss';
@@ -43,7 +44,7 @@ function stripHtml(s) {
 }
 
 async function postPatchNote(client, channelId, game, item) {
-  const gameLabel = game === 'poe2' ? 'Path of Exile 2' : 'Path of Exile';
+  const gameLabel = game === 'poe2' ? POE.game2Label : POE.game1Label;
   const desc = stripHtml(item.contentSnippet || item.content || item.summary || '').slice(0, 500);
 
   const embed = new EmbedBuilder()

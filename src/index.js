@@ -14,6 +14,7 @@ import { attachVerifyJoinHandler } from './verify.js';
 import { attachAuditHandlers } from './audit.js';
 import { mountCaptchaRoutes } from './captcha.js';
 import { startPoePatchPoller, postLatestForTest } from './poePatchNotes.js';
+import { VIDEO } from './copy.js';
 
 dotenv.config();
 
@@ -181,9 +182,12 @@ async function sendVideoNotification(video, feed) {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
   // Role mention + message (Discord will auto-embed the YouTube link)
-  const content = process.env.DISCORD_ROLE_ID
-    ? `<@&${process.env.DISCORD_ROLE_ID}> 🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`
-    : `🎬 **New video from ${feed.title}!**\n\n**${video.title}**\n${videoUrl}`;
+  const content = VIDEO.notification({
+    roleMention: process.env.DISCORD_ROLE_ID ? `<@&${process.env.DISCORD_ROLE_ID}>` : '',
+    feedTitle: feed.title,
+    videoTitle: video.title,
+    videoUrl,
+  });
 
   const components = [buildVideoNotificationRow(MEMBERSHIP_ENABLED)];
 

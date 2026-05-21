@@ -7,6 +7,7 @@ import {
 } from 'discord.js';
 import { issueUserLinkState, buildUserAuthUrl } from './discordAuth.js';
 import { TIER_TO_ROLE, TIER_TO_CHANNEL } from './config.js';
+import { LINK_YOUTUBE, VIDEO, PERKS } from '../copy.js';
 
 export const LINK_YT_BUTTON_ID = 'link_yt';
 
@@ -18,7 +19,7 @@ export function buildLinkYouTubeRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(LINK_YT_BUTTON_ID)
-      .setLabel('Link YouTube')
+      .setLabel(LINK_YOUTUBE.buttonLabel)
       .setEmoji('🔗')
       .setStyle(ButtonStyle.Primary),
   );
@@ -29,12 +30,12 @@ export function buildLinkYouTubeRow() {
 export function buildVideoNotificationRow(includeLinkButton) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setLabel('Subscribe')
+      .setLabel(VIDEO.subscribeLabel)
       .setEmoji('🔔')
       .setStyle(ButtonStyle.Link)
       .setURL(`${channelUrl()}?sub_confirmation=1`),
     new ButtonBuilder()
-      .setLabel('All Videos')
+      .setLabel(VIDEO.allVideosLabel)
       .setEmoji('📺')
       .setStyle(ButtonStyle.Link)
       .setURL(`${channelUrl()}/videos`),
@@ -43,7 +44,7 @@ export function buildVideoNotificationRow(includeLinkButton) {
     row.addComponents(
       new ButtonBuilder()
         .setCustomId(LINK_YT_BUTTON_ID)
-        .setLabel('Link YouTube')
+        .setLabel(LINK_YOUTUBE.buttonLabel)
         .setEmoji('🔗')
         .setStyle(ButtonStyle.Primary),
     );
@@ -54,23 +55,16 @@ export function buildVideoNotificationRow(includeLinkButton) {
 export function buildLinkYouTubeEmbed() {
   return new EmbedBuilder()
     .setColor(0xFF0000)
-    .setTitle('Got a YouTube membership for Iva Markova?')
-    .setDescription(
-      'Click the button below to link your YouTube account and **automatically get your member role** in this server.\n\n' +
-      '**Before you click:** make sure your YouTube account is connected to Discord.\n' +
-      'In Discord: **User Settings → Connections → Add → YouTube** — and sign in with the YouTube account that has the membership.\n\n' +
-      'Channel: https://www.youtube.com/@Iva_m1'
-    )
-    .setFooter({ text: 'Roles sync automatically when your tier changes or expires.' });
+    .setTitle(LINK_YOUTUBE.embedTitle)
+    .setDescription(LINK_YOUTUBE.embedDescription)
+    .setFooter({ text: LINK_YOUTUBE.embedFooter });
 }
 
 export async function handleLinkYouTubeButton(interaction) {
   const state = issueUserLinkState(interaction.user.id);
   const url = buildUserAuthUrl(state);
   await interaction.reply({
-    content:
-      `Click here to authorize: <${url}>\n\n` +
-      `If Discord says "No YouTube connection found", add it under **User Settings → Connections → YouTube** first, then click the button again.`,
+    content: LINK_YOUTUBE.authorizeReply(url),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -88,33 +82,30 @@ export function buildPerksEmbed() {
         const channelPart = channelId ? ` → <#${channelId}>` : '';
         return `${medal} **${tier}**${channelPart}`;
       })
-    : ['*(no tiers configured yet)*'];
+    : [PERKS.noTiers];
 
   return new EmbedBuilder()
     .setColor(0xFF0000)
-    .setTitle('🔓 Membership Perks')
+    .setTitle(PERKS.title)
     .setDescription(
-      'Become a channel member to unlock these exclusive channels:\n\n' +
+      `${PERKS.intro}\n\n` +
       lines.join('\n') +
-      '\n\nHigher tiers include everything in the tiers below them.\n\n' +
-      '**How to unlock:**\n' +
-      '1. Get a membership — tap **Get Membership** below.\n' +
-      '2. Connect YouTube to Discord (User Settings → Connections → YouTube).\n' +
-      '3. Tap **Link YouTube** to claim your role.'
+      `\n\n${PERKS.cascadeNote}\n\n` +
+      PERKS.howTo
     )
-    .setFooter({ text: 'Roles sync automatically — upgrades, downgrades, and cancellations all update.' });
+    .setFooter({ text: PERKS.footer });
 }
 
 export function buildPerksRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setLabel('Get Membership')
+      .setLabel(PERKS.getMembershipLabel)
       .setEmoji('🔔')
       .setStyle(ButtonStyle.Link)
       .setURL(`${channelUrl()}/join`),
     new ButtonBuilder()
       .setCustomId(LINK_YT_BUTTON_ID)
-      .setLabel('Link YouTube')
+      .setLabel(LINK_YOUTUBE.buttonLabel)
       .setEmoji('🔗')
       .setStyle(ButtonStyle.Primary),
   );

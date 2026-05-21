@@ -11,6 +11,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { issueCaptchaState } from './captcha.js';
+import { VERIFY } from './copy.js';
 
 export const VERIFY_BUTTON_ID = 'verify_human';
 
@@ -22,19 +23,16 @@ function minAgeMs() {
 export function buildVerifyEmbed() {
   return new EmbedBuilder()
     .setColor(0x57F287)
-    .setTitle('Verify you are human')
-    .setDescription(
-      'Welcome! To access the rest of the server, click the button below.\n\n' +
-      'This is a quick anti-bot check — no account info is shared, just a click.'
-    )
-    .setFooter({ text: 'Trouble? DM a moderator.' });
+    .setTitle(VERIFY.embedTitle)
+    .setDescription(VERIFY.embedDescription)
+    .setFooter({ text: VERIFY.embedFooter });
 }
 
 export function buildVerifyRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(VERIFY_BUTTON_ID)
-      .setLabel('I am human')
+      .setLabel(VERIFY.buttonLabel)
       .setEmoji('✅')
       .setStyle(ButtonStyle.Success),
   );
@@ -82,11 +80,7 @@ export async function assignVerifiedRole(client, discordUserId) {
     // Best-effort welcome DM pointing to the set-roles channel.
     const setRolesId = process.env.DISCORD_SET_ROLES_CHANNEL_ID;
     const where = setRolesId ? `<#${setRolesId}>` : '#set-roles';
-    member.send(
-      `✅ You're verified — welcome to **${guild.name}**!\n\n` +
-      `Head to ${where} to pick your notifications (new videos, PoE patch notes) ` +
-      `and to link your YouTube membership for member perks.`
-    ).catch(() => {}); // DMs may be closed — non-fatal
+    member.send(VERIFY.welcomeDm(guild.name, where)).catch(() => {}); // DMs may be closed — non-fatal
 
     return { ok: true };
   } catch (e) {
@@ -97,7 +91,7 @@ export async function assignVerifiedRole(client, discordUserId) {
 
 export async function handleVerifyButton(interaction) {
   if (!process.env.DISCORD_VERIFIED_ROLE_ID) {
-    await interaction.reply({ content: 'Verification is not configured. Ping a mod.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: VERIFY.notConfigured, flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -106,18 +100,13 @@ export async function handleVerifyButton(interaction) {
   const accountAgeMs = Date.now() - interaction.user.createdAt.getTime();
   if (accountAgeMs < minAgeMs()) {
     const days = Math.ceil((minAgeMs() - accountAgeMs) / (24 * 60 * 60_000));
-    await interaction.reply({
-      content:
-        `Your Discord account is too new to be verified automatically. ` +
-        `Try again in **~${days} day${days === 1 ? '' : 's'}**, or DM a mod for manual review.`,
-      flags: MessageFlags.Ephemeral,
-    });
+    await interaction.reply({ content: VERIFY.accountTooNew(days), flags: MessageFlags.Ephemeral });
     return;
   }
 
   const member = interaction.member;
   if (member?.roles?.cache?.has(process.env.DISCORD_VERIFIED_ROLE_ID)) {
-    await interaction.reply({ content: 'You are already verified.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: VERIFY.alreadyVerified, flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -125,19 +114,14 @@ export async function handleVerifyButton(interaction) {
   if (process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY && process.env.PUBLIC_BASE_URL) {
     const state = issueCaptchaState(interaction.user.id);
     const url = `${process.env.PUBLIC_BASE_URL}/verify/captcha?state=${state}`;
-    await interaction.reply({
-      content:
-        `One more step: click here to complete the human check → <${url}>\n` +
-        `Link expires in 10 minutes.`,
-      flags: MessageFlags.Ephemeral,
-    });
+    await interaction.reply({ content: VERIFY.captchaRedirect(url), flags: MessageFlags.Ephemeral });
     return;
   }
 
   const result = await assignVerifiedRole(interaction.client, interaction.user.id);
   if (result.ok) {
-    await interaction.reply({ content: '✅ Verified. Welcome in.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: VERIFY.success, flags: MessageFlags.Ephemeral });
   } else {
-    await interaction.reply({ content: `Failed to verify: ${result.reason}`, flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: VERIFY.failure(result.reason), flags: MessageFlags.Ephemeral });
   }
 }

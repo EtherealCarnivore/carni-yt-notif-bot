@@ -12,6 +12,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { LINK_YT_BUTTON_ID } from './membership/linkButton.js';
+import { ROLE_PICKER } from './copy.js';
 
 export const ROLE_MENU_OPEN_ID = 'roles_open';
 export const ROLE_BUTTON_IDS = {
@@ -20,8 +21,8 @@ export const ROLE_BUTTON_IDS = {
 };
 
 const META = {
-  [ROLE_BUTTON_IDS.poe1]: { label: 'PoE 1 Pings', emoji: '⚔️', env: 'POE1_PING_ROLE_ID' },
-  [ROLE_BUTTON_IDS.poe2]: { label: 'PoE 2 Pings', emoji: '🔮', env: 'POE2_PING_ROLE_ID' },
+  [ROLE_BUTTON_IDS.poe1]: { label: ROLE_PICKER.poe1Label, emoji: '⚔️', env: 'POE1_PING_ROLE_ID' },
+  [ROLE_BUTTON_IDS.poe2]: { label: ROLE_PICKER.poe2Label, emoji: '🔮', env: 'POE2_PING_ROLE_ID' },
 };
 
 function roleIdFor(buttonId) {
@@ -40,20 +41,14 @@ export function isRoleMenuOpen(customId) {
 export function buildRolePickerEmbed() {
   return new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle('Notifications & Membership')
-    .setDescription(
-      'Tap **Manage Notifications** to pick your patch-note pings. ' +
-      'A green ✓ shows what you already have.\n\n' +
-      '⚔️ **PoE 1 Pings** — Path of Exile patch notes\n' +
-      '🔮 **PoE 2 Pings** — Path of Exile 2 patch notes\n' +
-      '💎 **Link YouTube** — claim your channel-membership role'
-    );
+    .setTitle(ROLE_PICKER.embedTitle)
+    .setDescription(ROLE_PICKER.embedDescription);
 }
 
 export function buildRolePickerRow() {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(ROLE_MENU_OPEN_ID).setLabel('Manage Notifications').setEmoji('🔔').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(LINK_YT_BUTTON_ID).setLabel('Link YouTube').setEmoji('🔗').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(ROLE_MENU_OPEN_ID).setLabel(ROLE_PICKER.manageButtonLabel).setEmoji('🔔').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(LINK_YT_BUTTON_ID).setLabel(ROLE_PICKER.linkYouTubeLabel).setEmoji('🔗').setStyle(ButtonStyle.Secondary),
   );
 }
 
@@ -78,12 +73,12 @@ function buildManageComponents(member) {
   return any ? [row] : [];
 }
 
-const MANAGE_TEXT = 'Toggle your pings — **green ✓** means you have it:';
+const MANAGE_TEXT = ROLE_PICKER.manageText;
 
 export async function handleRoleMenuOpen(interaction) {
   const components = buildManageComponents(interaction.member);
   if (components.length === 0) {
-    await interaction.reply({ content: 'No notification roles are configured right now.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: ROLE_PICKER.noneConfigured, flags: MessageFlags.Ephemeral });
     return;
   }
   await interaction.reply({ content: MANAGE_TEXT, components, flags: MessageFlags.Ephemeral });
