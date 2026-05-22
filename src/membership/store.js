@@ -8,6 +8,8 @@ const DEFAULT = {
   links: {},                       // discordUserId → { youtubeChannelId, linkedAt }
   memberDurationSnapshots: {},     // ytChannelId → { lastSeenMonths, lastSeenTier }
   lockdownState: null,             // null or { mode, channelIds, startedAt }
+  poeBaselined: false,             // PoE poller has done its silent first-run baseline
+  poeSeenIds: [],                  // capped list of PoE update IDs already posted
 };
 
 let cache = null;
