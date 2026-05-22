@@ -60,12 +60,33 @@ export function attachAuditHandlers(client) {
     const author = msg.author ?? (cached ? { id: cached.authorId, tag: cached.authorTag } : null);
     if (author?.bot) return;
 
+    // Cross-reference the native audit log to find a moderator deletion.
+    // Discord does NOT log self-deletions, so if nothing matches it was almost
+    // certainly the author removing their own message.
+    let deletedBy = null;
+    try {
+      const guild = msg.guild || client.guilds.cache.get(msg.guildId);
+      if (guild) {
+        const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.MessageDelete, limit: 5 });
+        const now = Date.now();
+        const entry = logs.entries.find(e =>
+          (now - e.createdTimestamp) < 10000 &&
+          e.extra?.channel?.id === msg.channelId &&
+          (!author?.id || e.target?.id === author.id)
+        );
+        if (entry) deletedBy = entry.executor;
+      }
+    } catch {
+      // bot lacks View Audit Log, or fetch failed
+    }
+
     const embed = new EmbedBuilder()
       .setColor(0xED4245)
       .setTitle('🗑️ Message deleted')
       .addFields(
         { name: 'Author', value: author ? `<@${author.id}> (${author.tag || author.id})` : 'Unknown', inline: true },
         { name: 'Channel', value: `<#${msg.channelId}>`, inline: true },
+        { name: 'Deleted by', value: deletedBy ? `<@${deletedBy.id}> (${deletedBy.tag})` : '*Self or untracked — Discord only logs deletions by others*', inline: true },
         { name: 'Content', value: clip(msg.content ?? cached?.content ?? '*(not cached)*') },
       )
       .setTimestamp(new Date());
