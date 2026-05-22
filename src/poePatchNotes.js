@@ -30,6 +30,13 @@ function classifyGame(title) {
   return null;
 }
 
+// Light filter: keep update/patch-relevant posts, drop showcases, podcasts,
+// sales, etc. A version number (3.x / 0.x) also qualifies. Edit this regex to
+// tune what lands in the channels.
+function isUpdateRelevant(title) {
+  return /\bpatch\b|\bhotfix\b|content update|\bbalance\b|\bexpansion\b|\b\d+\.\d+/i.test(title || '');
+}
+
 function stripHtml(s) {
   return (s || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -44,6 +51,7 @@ async function fetchPoe1Items() {
   const out = [];
   for (const it of feed.items || []) {
     if (classifyGame(it.title) !== 'poe1') continue;
+    if (!isUpdateRelevant(it.title)) continue;
     out.push({
       id: `rss_${it.guid || it.link}`,
       game: 'poe1',
@@ -65,6 +73,7 @@ async function fetchPoe2Items() {
   const out = [];
   for (const it of data.appnews?.newsitems || []) {
     if (it.feedname !== 'steam_community_announcements') continue;
+    if (!isUpdateRelevant(it.title)) continue;
     out.push({
       id: `steam_${it.gid}`,
       game: 'poe2',
